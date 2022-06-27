@@ -1,70 +1,133 @@
-# Getting Started with Create React App
+# React 小技巧
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+原文： [https://piyushsinha.tech/series/optimizing-react?ck_subscriber_id=1555690090](https://piyushsinha.tech/series/optimizing-react?ck_subscriber_id=1555690090)
 
-## Available Scripts
+github Demo:https://github.com/CHJ30/react-tips
 
-In the project directory, you can run:
+### 1. React.memo(comp,[areEqual(prevProp,nextProps)])
 
-### `npm start`
+1. 场景：父组件中有 N 个小组件，其中有父组件给子组件传值后子组件频繁更新渲染，也有子组件不频繁渲染的组件。
+2. 第二个参数为空时，默认比较传递给子组件的**参数为原始值时（number,string,boolean,null,undefined），并且参数与上次传递的传输相等时**，React.memo 才会避免重复渲染(因为 React.memo 是用 referential equality 引用相等作为判断)
+3. 第二个参数不为空时，使用第二个参数（相等判断参数）作为是否需要重新渲染的判断一句
+4. 小 Demo
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- 父组件：
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```jsx
+import React, { useState } from "react";
+import Child1 from "./Child1";
+import Child2 from "./Child2";
+export default function ReactMemo() {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <button
+        onClick={() => {
+          setCount((count) => count + 1);
+        }}
+      >
+        count
+      </button>
+      <Child1 count={count} />
+      <Child2 string={"我是一段字符串"} />
+    </div>
+  );
+}
+```
 
-### `npm test`
+- 子组件 1（频繁更新
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```jsx
+import React from "react";
+export default function Child1(props) {
+  return (
+    <div>
+      <span>我是一直变化的组件</span>
+      <span>{props.count}</span>
+    </div>
+  );
+}
+```
 
-### `npm run build`
+- 子组件 2（不频繁更新
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```jsx
+import React from "react";
+export default function Child2(props) {
+  return (
+    <div>
+      <span>我是不会变化的组件</span>
+      <span>{props.string}</span>
+    </div>
+  );
+}
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+点击按钮后使用 React devtool 来抓取渲染时间
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+可以看到子组件 2 花费了部分时间渲染
 
-### `npm run eject`
+![Untitled](React%E5%B0%8F%E6%8A%80%E5%B7%A7%20fde02afb8a6745819d8d99c5658c7765/Untitled.png)
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+使用 React.memo
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```jsx
+import React from "react";
+export default React.memo(function Child2(props) {
+  return (
+    <div>
+      <span>我是不会变化的组件</span>
+      <span>{props.string}</span>
+    </div>
+  );
+});
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+重新点击，发现子组件 2 的没有被重复渲染
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+![Untitled](React%E5%B0%8F%E6%8A%80%E5%B7%A7%20fde02afb8a6745819d8d99c5658c7765/Untitled%201.png)
 
-## Learn More
+### 2. useMemo
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. 由于 React.memo 的判断限制，那有什么可以帮助我们当参数为非原始值时做一个参数缓存呢。答案是 useMemo。
+2. 小 Demo
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+将父组件修改为
 
-### Code Splitting
+```jsx
+import React, { useState, useMemo } from "react";
+import Child1 from "./Child1";
+import Child2 from "./Child2";
+export default function UseMemo() {
+  const [count, setCount] = useState(0);
+  const person = { name: "chj" };
+  const memoizedPerson = useMemo(() => person, []); // 这里使用
+  return (
+    <div>
+      <button
+        onClick={() => {
+          setCount((count) => count + 1);
+        }}
+      >
+        count
+      </button>
+      <Child1 count={count} />
+      <Child2 person={memoizedPerson} />
+    </div>
+  );
+}
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+效果确实是减少了重复渲染
 
-### Analyzing the Bundle Size
+![Untitled](React%E5%B0%8F%E6%8A%80%E5%B7%A7%20fde02afb8a6745819d8d99c5658c7765/Untitled%202.png)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### 2. useCallback
 
-### Making a Progressive Web App
+1. 同理，当传递函数时，使用 useCallback 包裹即可
+2. `useCallback(fn, deps)`  相当于  `useMemo(() => fn, deps)`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```jsx
+const handleClick = () => {};
+const memoizedHandleClick = useCallback(handleClick, []);
+```
